@@ -8,19 +8,23 @@ import shutil
 import sys, os
 import time
 
+ENC = 'cp932'
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
+def ewrite(s, o=sys.stdout):
+  o.write(s.encode(ENC))
+
 def pdotinc(c):
-  sys.stdout.write('.')
+  ewrite('.')
   return c + 1
 
 def plnres(c):
-  if c: sys.stdout.write('\n')
+  if c: ewrite('\n')
   return 0
 
-def ssxcopy(src, dst):
+def ssxcopy(src, dst): # must be in unicode
   for pathname, dirnames, filenames in os.walk(src, topdown=True):
-    sys.stdout.write('path: [%s] scan directories ' % pathname)
+    ewrite('path: [%s] scan directories ' % pathname)
     c = 1
     for d in dirnames:
       sd = os.path.join(pathname, d)[len(src) + 1:]
@@ -28,10 +32,10 @@ def ssxcopy(src, dst):
       if os.path.exists(td): c = pdotinc(c)
       else:
         c = plnres(c)
-        sys.stdout.write('mkdir: %s\n' % td)
+        ewrite('mkdir: %s\n' % td)
         os.mkdir(td)
     c = plnres(c)
-    sys.stdout.write('path: [%s] scan files ' % pathname)
+    ewrite('path: [%s] scan files ' % pathname)
     c = 1
     for f in filenames:
       ff = os.path.join(pathname, f)
@@ -42,22 +46,22 @@ def ssxcopy(src, dst):
         c = pdotinc(c)
       else:
         c = plnres(c)
-        sys.stdout.write('copy file: %s\n' % tf)
+        ewrite('copy file: %s\n' % tf)
         shutil.copyfile(ff, tf)
         os.utime(tf, (os.stat(ff).st_atime, os.stat(ff).st_mtime))
     c = plnres(c)
 
 if __name__ == '__main__':
   if(len(sys.argv) < 3):
-    sys.stderr.write('Usage: %s src_dir dst_dir\n' % sys.argv[0])
+    ewrite('Usage: %s src_dir dst_dir\n' % sys.argv[0], sys.stderr)
   else:
     remove_delim = lambda s: s[:-1] if s[-1] == '/' or s[-1] == '\\' else s
-    src, dst = map(remove_delim, sys.argv[1:3])
-    sys.stdout.write('src: [%s] dst: [%s]\n' % (src, dst))
-    if(len(src) == 0): sys.stderr.write('src may be root')
-    elif(not os.path.exists(src)): sys.stderr.write('src does not exist')
-    elif(not os.path.isdir(src)): sys.stderr.write('src is not a directory')
-    elif(len(dst) == 0): sys.stderr.write('dst may be root')
-    elif(not os.path.exists(dst)): sys.stderr.write('dst does not exist')
-    elif(not os.path.isdir(dst)): sys.stderr.write('dst is not a directory')
+    src, dst = map(remove_delim, map(lambda s: s.decode(ENC), sys.argv[1:3]))
+    ewrite('src: [%s] dst: [%s]\n' % (src, dst))
+    if(len(src) == 0): ewrite('src may be root', sys.stderr)
+    elif(not os.path.exists(src)): ewrite('src does not exist', sys.stderr)
+    elif(not os.path.isdir(src)): ewrite('src is not a directory', sys.stderr)
+    elif(len(dst) == 0): ewrite('dst may be root', sys.stderr)
+    elif(not os.path.exists(dst)): ewrite('dst does not exist', sys.stderr)
+    elif(not os.path.isdir(dst)): ewrite('dst is not a directory', sys.stderr)
     else: ssxcopy(src, dst)
