@@ -32,14 +32,15 @@ def makeprogress(num):
     ' ', progressbar.ETA(), ' ', progressbar.FileTransferSpeed()]
   return progressbar.ProgressBar(widgets=widgets, maxval=num).start()
 
-def updateprogress(pgs, count):
+def updateprogress(pgs, count, num):
   pgs.update(count)
-  return 0 # reset flag (not need \n)
+  return 0 if count == num else 1 # reset or set flag ((not) need \n)
 
 def ssxcopy(src, dst): # must be in unicode
   for pathname, dirnames, filenames in os.walk(src, topdown=True):
     ewrite('[%s] scan directories ' % pathname)
-    pgs = makeprogress(len(dirnames))
+    num = len(dirnames)
+    pgs = makeprogress(num)
     count = 0
     c = 1 # set flag (need \n)
     for d in dirnames:
@@ -47,7 +48,7 @@ def ssxcopy(src, dst): # must be in unicode
       sd = os.path.join(pathname, d)[len(src) + 1:]
       td = os.path.join(dst, sd)
       if os.path.exists(td):
-        c = updateprogress(pgs, count) if pgs else pdotinc(c)
+        c = updateprogress(pgs, count, num) if pgs else pdotinc(c)
       else:
         c = plnres(c)
         ewrite('mkdir: %s\n' % td)
@@ -55,7 +56,8 @@ def ssxcopy(src, dst): # must be in unicode
     c = plnres(c)
     if pgs: pgs.finish()
     ewrite('[%s] scan files ' % pathname)
-    pgs = makeprogress(len(filenames))
+    num = len(filenames)
+    pgs = makeprogress(num)
     count = 0
     c = 1 # set flag (need \n)
     for f in filenames:
@@ -65,7 +67,7 @@ def ssxcopy(src, dst): # must be in unicode
       tf = os.path.join(dst, sf)
       if os.path.exists(tf) \
       and long(os.stat(ff).st_mtime) <= long(os.stat(tf).st_mtime):
-        c = updateprogress(pgs, count) if pgs else pdotinc(c)
+        c = updateprogress(pgs, count, num) if pgs else pdotinc(c)
       else:
         c = plnres(c)
         ewrite('copy file: %s\n' % tf)
