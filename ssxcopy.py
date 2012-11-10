@@ -4,11 +4,13 @@
 ssxcopy.py testsrc testdst
 '''
 
+import sys, os, locale
 import shutil
-import sys, os
 import time
+import progressbar
 
-ENC = 'cp932'
+ENC = locale.getpreferredencoding()
+LINEMAX = 80
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def ewrite(s, o=sys.stdout):
@@ -16,40 +18,61 @@ def ewrite(s, o=sys.stdout):
 
 def pdotinc(c):
   ewrite('.')
-  return c + 1
+  return c + 1 # set flag (need \n)
 
 def plnres(c):
   if c: ewrite('\n')
-  return 0
+  return 0 # reset flag (not need \n)
+
+def makeprogress(num):
+  if num < LINEMAX: return None
+  ewrite('\n')
+  widgets = ['(%s): ' % (num), progressbar.Percentage(),
+    ' ', progressbar.Bar(marker=progressbar.RotatingMarker()),
+    ' ', progressbar.ETA(), ' ', progressbar.FileTransferSpeed()]
+  return progressbar.ProgressBar(widgets=widgets, maxval=num).start()
+
+def updateprogress(pgs, count):
+  pgs.update(count)
+  return 0 # reset flag (not need \n)
 
 def ssxcopy(src, dst): # must be in unicode
   for pathname, dirnames, filenames in os.walk(src, topdown=True):
-    ewrite('path: [%s] scan directories ' % pathname)
-    c = 1
+    ewrite('[%s] scan directories ' % pathname)
+    pgs = makeprogress(len(dirnames))
+    count = 0
+    c = 1 # set flag (need \n)
     for d in dirnames:
+      count += 1
       sd = os.path.join(pathname, d)[len(src) + 1:]
       td = os.path.join(dst, sd)
-      if os.path.exists(td): c = pdotinc(c)
+      if os.path.exists(td):
+        c = updateprogress(pgs, count) if pgs else pdotinc(c)
       else:
         c = plnres(c)
         ewrite('mkdir: %s\n' % td)
         os.mkdir(td)
     c = plnres(c)
-    ewrite('path: [%s] scan files ' % pathname)
-    c = 1
+    if pgs: pgs.finish()
+    ewrite('[%s] scan files ' % pathname)
+    pgs = makeprogress(len(filenames))
+    count = 0
+    c = 1 # set flag (need \n)
     for f in filenames:
+      count += 1
       ff = os.path.join(pathname, f)
       sf = ff[len(src) + 1:]
       tf = os.path.join(dst, sf)
       if os.path.exists(tf) \
       and long(os.stat(ff).st_mtime) <= long(os.stat(tf).st_mtime):
-        c = pdotinc(c)
+        c = updateprogress(pgs, count) if pgs else pdotinc(c)
       else:
         c = plnres(c)
         ewrite('copy file: %s\n' % tf)
         shutil.copyfile(ff, tf)
         os.utime(tf, (os.stat(ff).st_atime, os.stat(ff).st_mtime))
     c = plnres(c)
+    if pgs: pgs.finish()
 
 if __name__ == '__main__':
   if(len(sys.argv) < 3):
