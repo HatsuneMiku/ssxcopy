@@ -1,11 +1,11 @@
 /*
   CompressCrypt.cpp
 
-  from CryptCompress.c (T:\iZ\age-c466\backup_e\ADTX\prj\util\CryptCompress)
-  or Encrypt.c / Decrypt.c (T:\iZ\age-c466\backup_e\ADTX\prj\util\vcencrypt)
+  from CryptCompress.c (...\prj\util\CryptCompress)
+  or Encrypt.c / Decrypt.c (...\prj\util\vcencrypt)
 
   cl CompressCrypt.cpp AES256_KeyBLOB.cpp kernel32.lib user32.lib gdi32.lib \
-    advapi32.lib crypt32.lib (-DDEBUG) -DUNICODE -EHsc
+    advapi32.lib crypt32.lib -DUNICODE -EHsc (-DDEBUG)
 */
 
 #include "AES256_KeyBLOB.h"
