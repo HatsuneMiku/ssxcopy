@@ -37,7 +37,11 @@ def test_AES_256_CBC_decrypt(infile, outfile, passwd):
     key, iv = get_key_iv(passwd, salt)
     a256c = AES.new(key, AES.MODE_CBC, iv)
     dat = a256c.decrypt(ifp.read())
-    ofp.write(dat[:-ord(dat[-1])])
+    pad = ord(dat[-1])
+    if 1 <= pad <= 16: ofp.write(dat[:-pad])
+    else:
+      ofp.write(dat)
+      print 'padding may be incorrect'
   ofp.close()
   ifp.close()
 
