@@ -4,13 +4,45 @@
 '''
 
 import sys, os
+import random
+import hashlib
+from Crypto.Cipher import AES
 
-def test_AES_256_CBC(infile, outfile, passwd):
-  print infile, outfile, passwd
-  return
+def test_AES_256_CBC_encrypt(infile, outfile, passwd):
+  ifp = open(infile, 'rb')
+  ofp = open(outfile, 'wb')
+  ofp.write('Salted__')
+  salt = ''.join(chr(random.randint(0, 0xFF)) for _ in range(8))
+  ofp.write(salt)
+  h0 = hashlib.md5(passwd + salt).digest()
+  h1 = hashlib.md5(h0 + passwd + salt).digest()
+  h2 = hashlib.md5(h1 + passwd + salt).digest()
+  a256c = AES.new(h0 + h1, AES.MODE_CBC, h2)
+  dat = ifp.read()
+  pad = 16 - (len(dat) % 16) # pad should be never 0, so remove them later 1-16
+  ofp.write(a256c.encrypt(dat + (chr(pad) * pad)))
+  ofp.close()
+  ifp.close()
+
+def test_AES_256_CBC_decrypt(infile, outfile, passwd):
+  ifp = open(infile, 'rb')
+  ofp = open(outfile, 'wb')
+  if ifp.read(8) != 'Salted__': print 'header Salted__ is not found'
+  else:
+    salt = ifp.read(8)
+    h0 = hashlib.md5(passwd + salt).digest()
+    h1 = hashlib.md5(h0 + passwd + salt).digest()
+    h2 = hashlib.md5(h1 + passwd + salt).digest()
+    a256c = AES.new(h0 + h1, AES.MODE_CBC, h2)
+    dat = a256c.decrypt(ifp.read())
+    ofp.write(dat[:-ord(dat[-1])])
+  ofp.close()
+  ifp.close()
 
 if __name__ == '__main__':
-  if len(sys.argv) < 4:
-    print 'Usage: %s infile passwd' % sys.argv[0]
+  if len(sys.argv) < 5:
+    print 'Usage: %s (encrypt|decrypt) infile passwd' % sys.argv[0]
   else:
-    test_AES_256_CBC(*sys.argv[1:])
+    if sys.argv[1] == 'encrypt': test_AES_256_CBC_encrypt(*sys.argv[2:])
+    elif sys.argv[1] == 'decrypt': test_AES_256_CBC_decrypt(*sys.argv[2:])
+    else: print 'please select encrypt or decrypt'
