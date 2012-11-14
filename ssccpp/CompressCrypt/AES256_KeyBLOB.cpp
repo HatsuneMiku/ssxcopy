@@ -39,55 +39,35 @@ BOOL Create_AES256_KeyBLOB(
 {
   BOOL bStatus = FALSE;
   DWORD dwError = 0;
-  HCRYPTHASH hash = NULL;
-  BYTE hashwork[HASH_MD5_LEN * 64] = {0};
-  DWORD hashlen = 0; // must get with HP_HASHVAL (not use HP_HASHSIZE)
   EVERIFY(prov && pbPassword && pbSalt && blob && pbIV);
-  EVERIFY(HASH_MD5_LEN + cbPassword + cbSalt <= sizeof(hashwork));
-
-  EVERIFY(CryptCreateHash(prov, CALG_MD5, 0, 0, &hash));
-  CopyMemory(hashwork, pbPassword, cbPassword);
-  CopyMemory(hashwork + cbPassword, pbSalt, cbSalt);
-  EVERIFY(CryptHashData(hash, hashwork, cbPassword + cbSalt, 0));
-  BYTE hashdata0[HASH_MD5_LEN] = {0};
-  EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, NULL, &hashlen, 0));
-  EVERIFY(hashlen <= sizeof(hashdata0));
-  EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, hashdata0, &hashlen, 0));
-  if(hash){ EVERIFY(CryptDestroyHash(hash)); hash = NULL; }
-
-  EVERIFY(CryptCreateHash(prov, CALG_MD5, 0, 0, &hash));
-  CopyMemory(hashwork, hashdata0, hashlen);
-  CopyMemory(hashwork + hashlen, pbPassword, cbPassword);
-  CopyMemory(hashwork + hashlen + cbPassword, pbSalt, cbSalt);
-  EVERIFY(CryptHashData(hash, hashwork, hashlen + cbPassword + cbSalt, 0));
-  BYTE hashdata1[HASH_MD5_LEN] = {0};
-  EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, NULL, &hashlen, 0));
-  EVERIFY(hashlen <= sizeof(hashdata1));
-  EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, hashdata1, &hashlen, 0));
-  if(hash){ EVERIFY(CryptDestroyHash(hash)); hash = NULL; }
-
-  EVERIFY(CryptCreateHash(prov, CALG_MD5, 0, 0, &hash));
-  CopyMemory(hashwork, hashdata1, hashlen);
-  CopyMemory(hashwork + hashlen, pbPassword, cbPassword);
-  CopyMemory(hashwork + hashlen + cbPassword, pbSalt, cbSalt);
-  EVERIFY(CryptHashData(hash, hashwork, hashlen + cbPassword + cbSalt, 0));
-  BYTE hashdata2[HASH_MD5_LEN] = {0};
-  EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, NULL, &hashlen, 0));
-  EVERIFY(hashlen <= sizeof(hashdata2));
-  EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, hashdata2, &hashlen, 0));
-  if(hash){ EVERIFY(CryptDestroyHash(hash)); hash = NULL; }
-
+  const int N = 3;
+  BYTE hashdata[N][HASH_MD5_LEN];
+  for(int i = 0; i < N; i++){
+    HCRYPTHASH hash = NULL;
+    EVERIFY(CryptCreateHash(prov, CALG_MD5, 0, 0, &hash));
+    BYTE hashwork[HASH_MD5_LEN * 64];
+    EVERIFY(HASH_MD5_LEN + cbPassword + cbSalt <= sizeof(hashwork));
+    DWORD hashlen; // must get with HP_HASHVAL (not use HP_HASHSIZE)
+    if(!i) hashlen = 0;
+    else CopyMemory(hashwork, hashdata[i - 1], hashlen = HASH_MD5_LEN);
+    CopyMemory(hashwork + hashlen, pbPassword, cbPassword);
+    CopyMemory(hashwork + hashlen + cbPassword, pbSalt, cbSalt);
+    EVERIFY(CryptHashData(hash, hashwork, hashlen + cbPassword + cbSalt, 0));
+    EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, NULL, &hashlen, 0));
+    EVERIFY(hashlen == HASH_MD5_LEN);
+    EVERIFY(CryptGetHashParam(hash, HP_HASHVAL, hashdata[i], &hashlen, 0));
+    if(hash) EVERIFY(CryptDestroyHash(hash));
+  }
   blob->hdr.bType = PLAINTEXTKEYBLOB;
   blob->hdr.bVersion = CUR_BLOB_VERSION;
   blob->hdr.reserved = 0;
   blob->hdr.aiKeyAlg = CALG_AES_256;
   blob->cbKeySize = 32; // sizeof(blob->pbDerivedKey) is the size of pointer
-  CopyMemory(blob->pbDerivedKey, hashdata0, hashlen);
-  CopyMemory(blob->pbDerivedKey + hashlen, hashdata1, hashlen);
-  CopyMemory(pbIV, hashdata2, hashlen);
+  CopyMemory(blob->pbDerivedKey, hashdata[0], HASH_MD5_LEN);
+  CopyMemory(blob->pbDerivedKey + HASH_MD5_LEN, hashdata[1], HASH_MD5_LEN);
+  CopyMemory(pbIV, hashdata[2], HASH_MD5_LEN);
   bStatus = TRUE;
 
 done:
-  if(hash) VERIFY(CryptDestroyHash(hash));
   return bStatus;
 }
