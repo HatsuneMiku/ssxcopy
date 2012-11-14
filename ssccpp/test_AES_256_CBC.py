@@ -9,8 +9,8 @@ import hashlib
 from Crypto.Cipher import AES
 
 def get_key_iv(passwd, salt):
-  h = ['', '', '']
-  for i in range(3):
+  h = [''] * 3
+  for i in range(len(h)):
     h[i] = hashlib.md5((h[i - 1] if i else '') + passwd + salt).digest()
   return h[0] + h[1], h[2]
 
