@@ -9,10 +9,10 @@ import hashlib
 from Crypto.Cipher import AES
 
 def get_key_iv(passwd, salt):
-  h0 = hashlib.md5(passwd + salt).digest()
-  h1 = hashlib.md5(h0 + passwd + salt).digest()
-  h2 = hashlib.md5(h1 + passwd + salt).digest()
-  return h0 + h1, h2
+  h = ['', '', '']
+  for i in range(3):
+    h[i] = hashlib.md5((h[i - 1] if i else '') + passwd + salt).digest()
+  return h[0] + h[1], h[2]
 
 def test_AES_256_CBC_encrypt(infile, outfile, passwd):
   ifp = open(infile, 'rb')
