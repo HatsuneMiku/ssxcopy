@@ -18,14 +18,28 @@ def get_key_iv(passwd, salt):
 def test_AES_256_CBC_encrypt(infile, outfile, passwd, siv=None):
   ifp = open(infile, 'rb')
   ofp = open(outfile, 'wb')
-  ofp.write('Salted__')
-  salt = ''.join(chr(random.randint(0, 0xFF)) for _ in range(8))
-  ofp.write(salt)
-  key, iv = get_key_iv(passwd, salt)
+  if siv is None:
+    ofp.write('Salted__')
+    salt = ''.join(chr(random.randint(0, 0xFF)) for _ in range(8))
+    ofp.write(salt)
+    key, iv = get_key_iv(passwd, salt)
+  else:
+    biv = binascii.a2b_hex(siv)
+    salt = biv[:8]
+    key, iv = get_key_iv(passwd, salt)
+    a256c = AES.new(key, AES.MODE_CBC, biv) # * use biv for first 16 bytes *
+    ofp.write(a256c.encrypt(ifp.read(16)))
+    ifp.seek(0) # * rewind for correct encryption *
+  print 'salt=%s' % binascii.b2a_hex(salt)
+  print 'key=%s' % binascii.b2a_hex(key)
+  print 'iv =%s' % binascii.b2a_hex(iv)
   a256c = AES.new(key, AES.MODE_CBC, iv)
   dat = ifp.read()
+  if siv is not None: dat = binascii.a2b_hex('245ac52914718e606c22d753b87264f2') + dat[16:] # 245ac52914718e606c22d753b87264f2
   pad = 16 - (len(dat) % 16) # pad should be never 0, so remove them later 1-16
-  ofp.write(a256c.encrypt(dat + (chr(pad) * pad)))
+  outdat = a256c.encrypt(dat + (chr(pad) * pad))
+  if siv is not None: outdat = outdat[16:] # * skip for rewind length *
+  ofp.write(outdat)
   ofp.close()
   ifp.close()
 
