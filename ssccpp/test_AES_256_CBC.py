@@ -23,10 +23,22 @@ import hashlib
 from Crypto.Cipher import AES
 
 def get_key_iv(passwd, salt):
+  print 'salt=%s' % binascii.b2a_hex(salt)
   h = [''] * 3
   for i in range(len(h)):
     h[i] = hashlib.md5((h[i - 1] if i else '') + passwd + salt).digest()
   return h[0] + h[1], h[2]
+
+def get_key_iv_from_siv(passwd, siv):
+  biv = binascii.a2b_hex(siv) # first, convert string to hex (biv 16 bytes)
+  salt = biv[:8] # salt is the primary half of biv
+  key, iv = get_key_iv(passwd, salt) # create key and iv
+  return key, biv # reset iv to original biv
+
+def create_a256c(key, iv):
+  print 'key=%s' % binascii.b2a_hex(key)
+  print 'iv =%s' % binascii.b2a_hex(iv)
+  return AES.new(key, AES.MODE_CBC, iv)
 
 def test_AES_256_CBC_encrypt(infile, outfile, passwd, siv=None):
   ifp = open(infile, 'rb')
@@ -37,14 +49,8 @@ def test_AES_256_CBC_encrypt(infile, outfile, passwd, siv=None):
     ofp.write(salt)
     key, iv = get_key_iv(passwd, salt)
   else: # encrypt private key
-    biv = binascii.a2b_hex(siv) # first, convert string to hex (biv 16 bytes)
-    salt = biv[:8] # salt is the primary half of biv
-    key, iv = get_key_iv(passwd, salt) # create key and iv
-    iv = biv # reset iv to original biv
-  print 'salt=%s' % binascii.b2a_hex(salt)
-  print 'key=%s' % binascii.b2a_hex(key)
-  print 'iv =%s' % binascii.b2a_hex(iv)
-  a256c = AES.new(key, AES.MODE_CBC, iv)
+    key, iv = get_key_iv_from_siv(passwd, siv)
+  a256c = create_a256c(key, iv)
   dat = ifp.read()
   pad = 16 - (len(dat) % 16) # pad should be never 0, so remove them later 1-16
   ofp.write(a256c.encrypt(dat + (chr(pad) * pad)))
@@ -61,14 +67,8 @@ def test_AES_256_CBC_decrypt(infile, outfile, passwd, siv=None):
       salt = ifp.read(8)
       key, iv = get_key_iv(passwd, salt)
     else: # decrypt private key
-      biv = binascii.a2b_hex(siv) # first, convert string to hex (biv 16 bytes)
-      salt = biv[:8] # salt is the primary half of biv
-      key, iv = get_key_iv(passwd, salt) # create key and iv
-      iv = biv # reset iv to original biv
-    print 'salt=%s' % binascii.b2a_hex(salt)
-    print 'key=%s' % binascii.b2a_hex(key)
-    print 'iv =%s' % binascii.b2a_hex(iv)
-    a256c = AES.new(key, AES.MODE_CBC, iv)
+      key, iv = get_key_iv_from_siv(passwd, siv)
+    a256c = create_a256c(key, iv)
     dat = a256c.decrypt(ifp.read())
     pad = ord(dat[-1])
     if 1 <= pad <= 16: ofp.write(dat[:-pad])
