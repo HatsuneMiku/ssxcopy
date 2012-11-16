@@ -1,6 +1,19 @@
 #!/usr/local/bin/python
 # -*- coding: utf-8 -*-
 '''test_AES_256_CBC
+http://en.wikipedia.org/wiki/Cipher_block_chaining
+  #Cipher-block_chaining_.28CBC.29
+
+# in source
+openssl/crypto/pem/pem_lib.c
+# encrypt private key
+int PEM_ASN1_write_bio(int (*i2d)(), const char *name, BIO *bp, char *x,
+  const EVP_CIPHER *enc, unsigned char *kstr, int klen,
+  pem_password_cb *callback, void *u)
+# decrypt private key
+int PEM_do_header(EVP_CIPHER_INFO *cipher, unsigned char *data, long *plen,
+  pem_password_cb *callback,void *u)
+# following code is for AES-256-CBC only
 '''
 
 import sys, os
