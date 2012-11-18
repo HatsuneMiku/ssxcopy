@@ -121,21 +121,20 @@ class AES256CBC(object):
     self.pbar.finish()
     return (plainmd5, decompressmd5)
 
-  def stream_encrypt(self):
-    self.pbar = self.progress('encrypt')
-    self.pbar.finish()
+  def gets(self):
+    return sys.stdin.readline().rstrip()
 
-  def stream_decrypt(self):
-    self.pbar = self.progress('decrypt')
+  def stream_compress_encrypt(self):
+    plainmd5, c_md5, e_md5 = hashlib.md5(), hashlib.md5(), hashlib.md5()
+    self.pbar = self.progress('c', infile)
     self.pbar.finish()
+    return (plainmd5, c_md5, e_md5)
 
-  def stream_compress(self):
-    self.pbar = self.progress('compress')
+  def stream_decrypt_decompress(self):
+    plainmd5, d_md5, x_md5 = hashlib.md5(), hashlib.md5(), hashlib.md5()
+    self.pbar = self.progress('x', infile)
     self.pbar.finish()
-
-  def stream_decompress(self):
-    self.pbar = self.progress('decompress')
-    self.pbar.finish()
+    return (plainmd5, d_md5, x_md5)
 
 if __name__ == '__main__':
   iv = AES256CBC.getiv()
