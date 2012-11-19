@@ -1,5 +1,6 @@
 
 *.obj
 *.exe
+/ssccpp/privatedata
 /ssccpp/CompressCrypt/testdata
 /ssccpp/CompressCrypt/etc
