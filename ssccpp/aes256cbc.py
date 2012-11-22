@@ -190,3 +190,12 @@ if __name__ == '__main__':
   if os.path.exists(compressedfile): os.remove(compressedfile)
   os.rename('%s.bz2' % plainfile, compressedfile)
   a256c.file_decompress(compressedfile)
+
+  '''
+  bz2file = './privatedata/ssxcopy-master.tar.bz2'
+  a256c.file_decompress(bz2file)
+  xbz2file = '%s.x' % bz2file
+  if os.path.exists(xbz2file): os.remove(xbz2file)
+  os.rename(os.path.splitext(bz2file)[0], xbz2file)
+  a256c.file_compress(xbz2file)
+  '''
