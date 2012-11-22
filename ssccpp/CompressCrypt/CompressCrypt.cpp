@@ -35,9 +35,45 @@
       return oss.str(); \
     } \
   }while(0)
-#define BUF_LEN 4096
+#define BUF_LEN (64 * 1024) // 8192 // or malloc (8192 * 1024) to high speed
 
 using namespace std;
+
+string compress_stream_to_stream(FILE *ofp, FILE *ifp)
+{
+  char buf[BUF_LEN];
+  bz_stream bz = {0}; bz.bzalloc = NULL; bz.bzfree = NULL; bz.opaque = NULL;
+  bz.next_in = NULL; bz.avail_in = 0;
+  ERR_RETURN("bzCompressInit: ", BZ2_bzCompressInit(&bz, 9, 0, 0));
+  int stream_status = BZ_OK; bz.next_out = buf; bz.avail_out = sizeof(buf);
+  while(stream_status != BZ_STREAM_END){
+    char inbuf[BUF_LEN];
+    fprintf(stdout, ".");
+    if(!bz.avail_in){
+      bz.next_in = inbuf;
+      bz.avail_in = fread(inbuf, 1, sizeof(inbuf), ifp);
+    }
+    int action = bz.avail_in ? BZ_RUN : BZ_FINISH;
+    if((stream_status = BZ2_bzCompress(&bz, action)) == BZ_STREAM_END) break;
+    if((stream_status != BZ_OK)
+    && (stream_status != BZ_RUN_OK)
+    && (stream_status != BZ_FLUSH_OK)
+    && (stream_status != BZ_FINISH_OK)){
+      ostringstream oss;
+      oss << "bzCompress: " << stream_status;
+      return oss.str();
+    }
+    if(!bz.avail_out){
+      fwrite(buf, 1, sizeof(buf), ofp);
+      bz.next_out = buf; bz.avail_out = sizeof(buf);
+    }
+  }
+  if(size_t remain = sizeof(buf) - bz.avail_out){
+    fwrite(buf, 1, remain, ofp);
+  }
+  ERR_RETURN("bzCompressEnd: ", BZ2_bzCompressEnd(&bz));
+  return string("");
+}
 
 string decompress_stream_to_stream(FILE *ofp, FILE *ifp)
 {
@@ -48,6 +84,7 @@ string decompress_stream_to_stream(FILE *ofp, FILE *ifp)
   int stream_status = BZ_OK; bz.next_out = buf; bz.avail_out = sizeof(buf);
   while(stream_status != BZ_STREAM_END){
     char inbuf[BUF_LEN];
+    fprintf(stdout, ".");
     if(!bz.avail_in){
       bz.next_in = inbuf;
       bz.avail_in = fread(inbuf, 1, sizeof(inbuf), ifp);
@@ -117,18 +154,36 @@ int main(int ac, char **av)
 {
   test_encryptdata();
   {
+    fprintf(stdout, "bzCompress test ");
+    // FILE *ifp = fopen("..\\privatedata\\ssxcopy-master.tar", "rb");
+    // FILE *ofp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2", "wb");
+    FILE *ifp = fopen("..\\privatedata\\test.mp3", "rb");
+    FILE *ofp = fopen("..\\privatedata\\test.mp3.bz2", "wb");
+    if(!ifp || !ofp){
+      fprintf(stderr, "file is not found\n");
+    }else{
+      string s(compress_stream_to_stream(ofp, ifp));
+      if(s.length()) fprintf(stderr, "error: %s\n", s.c_str());
+    }
+    if(ofp) fclose(ofp);
+    if(ifp) fclose(ifp);
+    fprintf(stdout, "\n");
+  }
+  {
+    fprintf(stdout, "bzDecompress test ");
     // FILE *ifp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2", "rb");
     // FILE *ofp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2.x", "wb");
-    FILE *ifp = fopen("..\\privatedata\\test.mp3_test2.bz2", "rb");
-    FILE *ofp = fopen("..\\privatedata\\test.mp3_test2.bz2.x", "wb");
+    FILE *ifp = fopen("..\\privatedata\\test.mp3.bz2", "rb");
+    FILE *ofp = fopen("..\\privatedata\\test.mp3.bz2.x", "wb");
     if(!ifp || !ofp){
-      fprintf(stderr, "bzDecompress test file is not found\n");
+      fprintf(stderr, "file is not found\n");
     }else{
       string s(decompress_stream_to_stream(ofp, ifp));
       if(s.length()) fprintf(stderr, "error: %s\n", s.c_str());
     }
     if(ofp) fclose(ofp);
     if(ifp) fclose(ifp);
+    fprintf(stdout, "\n");
   }
   return 0;
 }
