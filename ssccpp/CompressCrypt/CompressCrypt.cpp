@@ -5,11 +5,17 @@
   or Encrypt.c / Decrypt.c (...\prj\util\vcencrypt)
 
   cl CompressCrypt.cpp AES256_KeyBLOB.cpp kernel32.lib user32.lib gdi32.lib \
-    advapi32.lib crypt32.lib -DUNICODE -EHsc (-DDEBUG)
+    advapi32.lib crypt32.lib libbz2.lib -DUNICODE -EHsc (-DDEBUG)
 */
 
 #include "AES256_KeyBLOB.h"
 #include <cstring>
+
+#include "bzlib.h"
+#include <iomanip>
+#include <ostream>
+#include <sstream>
+#include <string>
 
 #if _WIN32_WINNT >= 0x0600
 #define ENCRYPT_CSP PROV_RSA_AES
@@ -20,6 +26,45 @@
 #define ENCRYPT_ALGORITHM CALG_RC2 // CALG_RC2: 16xN bytes, CALG_RC4: same size
 #define ENCRYPT_KEYLEN 0
 #endif
+
+#define ERR_RETURN(s, f) do{ \
+    int r = (f); \
+    if(r != BZ_OK){ \
+      std::ostringstream oss; \
+      oss << s << r; \
+      return oss.str(); \
+    } \
+  }while(0)
+#define BUF_LEN 4096
+
+using namespace std;
+
+string decompress_stream_to_stream(FILE *ofp, FILE *ifp)
+{
+  char buf[BUF_LEN];
+  bz_stream bz = {0}; bz.bzalloc = NULL; bz.bzfree = NULL; bz.opaque = NULL;
+  bz.next_in = NULL; bz.avail_in = 0;
+  ERR_RETURN("bzDecompressInit: ", BZ2_bzDecompressInit(&bz, 0, 0));
+  int stream_status = BZ_OK; bz.next_out = buf; bz.avail_out = sizeof(buf);
+  while(stream_status != BZ_STREAM_END){
+    char inbuf[BUF_LEN];
+    if(!bz.avail_in){
+      bz.next_in = inbuf;
+      bz.avail_in = fread(inbuf, 1, sizeof(inbuf), ifp);
+    }
+    if((stream_status = BZ2_bzDecompress(&bz)) == BZ_STREAM_END) break;
+    ERR_RETURN("bzDecompress: ", stream_status);
+    if(!bz.avail_out){
+      fwrite(buf, 1, sizeof(buf), ofp);
+      bz.next_out = buf; bz.avail_out = sizeof(buf);
+    }
+  }
+  if(size_t remain = sizeof(buf) - bz.avail_out){
+    fwrite(buf, 1, remain, ofp);
+  }
+  ERR_RETURN("bzDecompressEnd: ", BZ2_bzDecompressEnd(&bz));
+  return string("");
+}
 
 void test_encryptdata(void)
 {
@@ -71,5 +116,19 @@ done:
 int main(int ac, char **av)
 {
   test_encryptdata();
+  {
+    // FILE *ifp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2", "rb");
+    // FILE *ofp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2.x", "wb");
+    FILE *ifp = fopen("..\\privatedata\\test.mp3_test2.bz2", "rb");
+    FILE *ofp = fopen("..\\privatedata\\test.mp3_test2.bz2.x", "wb");
+    if(!ifp || !ofp){
+      fprintf(stderr, "bzDecompress test file is not found\n");
+    }else{
+      string s(decompress_stream_to_stream(ofp, ifp));
+      if(s.length()) fprintf(stderr, "error: %s\n", s.c_str());
+    }
+    if(ofp) fclose(ofp);
+    if(ifp) fclose(ifp);
+  }
   return 0;
 }
