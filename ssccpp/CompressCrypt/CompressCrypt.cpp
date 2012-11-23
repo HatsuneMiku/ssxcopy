@@ -16,6 +16,8 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #if _WIN32_WINNT >= 0x0600
 #define ENCRYPT_CSP PROV_RSA_AES
@@ -35,9 +37,25 @@
       return oss.str(); \
     } \
   }while(0)
-#define BUF_LEN 8192 // or malloc (8192 * 1024) to high speed
+#define BUF_LEN (32 * 1024) // or malloc (8192 * 1024) to high speed
 
 using namespace std;
+
+fpos_t get_file_size_from_filename(char *filename)
+{
+  struct _stati64 st;
+  if(_stati64(filename, &st)) return 0;
+  return st.st_size;
+}
+
+fpos_t get_file_size_from_fp(FILE *fp)
+{
+  _fseeki64(fp, 0, SEEK_END);
+  fpos_t sz;
+  int result = fgetpos(fp, &sz);
+  _fseeki64(fp, 0, SEEK_SET);
+  return result ? 0 : sz;
+}
 
 string compress_stream_to_stream(FILE *ofp, FILE *ifp, fpos_t ifsz)
 {
@@ -156,46 +174,48 @@ int main(int ac, char **av)
 {
   test_encryptdata();
   {
-    fprintf(stdout, "  0%% bzCompress test ");
-    // FILE *ifp = fopen("..\\privatedata\\ssxcopy-master.tar", "rb");
-    // FILE *ofp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2", "wb");
-    FILE *ifp = fopen("..\\privatedata\\test.mp3", "rb");
-    FILE *ofp = fopen("..\\privatedata\\test.mp3.bz2", "wb");
+    // char *infile = "..\\privatedata\\ssxcopy-master.tar";
+    // char *outfile = "..\\privatedata\\ssxcopy-master.tar.bz2";
+    char *infile = "..\\privatedata\\test.mp3";
+    char *outfile = "..\\privatedata\\test.mp3.bz2";
+    fprintf(stdout, "  0%% bzCompress %s ", infile);
+    FILE *ifp = fopen(infile, "rb");
+    FILE *ofp = fopen(outfile, "wb");
     if(!ifp || !ofp){
       fprintf(stderr, "file is not found\n");
     }else{
-      fseek(ifp, 0, SEEK_END);
-      fpos_t ifsz;
-      fgetpos(ifp, &ifsz);
+      fpos_t ifsz = get_file_size_from_fp(ifp);
       fprintf(stdout, "%lld", ifsz);
-      fseek(ifp, 0, SEEK_SET);
       string s(compress_stream_to_stream(ofp, ifp, ifsz));
       if(s.length()) fprintf(stderr, "error: %s\n", s.c_str());
     }
     if(ofp) fclose(ofp);
     if(ifp) fclose(ifp);
     fprintf(stdout, "\n");
+    fprintf(stdout, "output: %s %lld\n",
+      outfile, get_file_size_from_filename(outfile));
   }
   {
-    fprintf(stdout, "  0%% bzDecompress test ");
-    // FILE *ifp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2", "rb");
-    // FILE *ofp = fopen("..\\privatedata\\ssxcopy-master.tar.bz2.x", "wb");
-    FILE *ifp = fopen("..\\privatedata\\test.mp3.bz2", "rb");
-    FILE *ofp = fopen("..\\privatedata\\test.mp3.bz2.x", "wb");
+    // char *infile = "..\\privatedata\\ssxcopy-master.tar.bz2";
+    // char *outfile = "..\\privatedata\\ssxcopy-master.tar.bz2.x";
+    char *infile = "..\\privatedata\\test.mp3.bz2";
+    char *outfile = "..\\privatedata\\test.mp3.bz2.x";
+    fprintf(stdout, "  0%% bzDecompress %s ", infile);
+    FILE *ifp = fopen(infile, "rb");
+    FILE *ofp = fopen(outfile, "wb");
     if(!ifp || !ofp){
       fprintf(stderr, "file is not found\n");
     }else{
-      fseek(ifp, 0, SEEK_END);
-      fpos_t ifsz;
-      fgetpos(ifp, &ifsz);
+      fpos_t ifsz = get_file_size_from_fp(ifp);
       fprintf(stdout, "%lld", ifsz);
-      fseek(ifp, 0, SEEK_SET);
       string s(decompress_stream_to_stream(ofp, ifp, ifsz));
       if(s.length()) fprintf(stderr, "error: %s\n", s.c_str());
     }
     if(ofp) fclose(ofp);
     if(ifp) fclose(ifp);
     fprintf(stdout, "\n");
+    fprintf(stdout, "output: %s %lld\n",
+      outfile, get_file_size_from_filename(outfile));
   }
   return 0;
 }
